@@ -1,0 +1,105 @@
+/* Reset globale per garantire che i bordi e il padding non sballino le larghezze */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: #524c4cce;
+  background-blend-mode: color;
+}
+
+.si {
+  min-height: 100vh; /* Cambiato da height a min-height per evitare tagli su schermi bassi */
+  width: 100%;
+  max-width: 600px;
+  background-image: linear-gradient(to right, #C71818, #0788DE);
+  background-attachment: fixed;
+  background-size: cover;
+  background-repeat: no-repeat;
+ 
+  margin: 0 auto;
+  
+  
+  /* Allineamento interno responsive */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 20px;
+}
+
+.title {
+  color: #69EFFA;
+  text-align: center; /* Centra il titolo in modo sicuro su ogni dispositivo */
+  margin-top: 3vh;
+  margin-bottom: 5vh;
+}
+
+.quadrato {
+  color: #f1f1f1;
+  display: grid;
+  grid-template-columns: 1fr;
+  width: 100%;
+}
+
+.quadrato div {
+  height: 7vh;
+  min-height: 50px; /* Impedisce al box di diventare troppo stretto sui dispositivi mobili */
+  width: 85%; /* Larghezza fluida rispetto al contenitore */
+  margin: 0 auto 3vh auto; /* Centra i bottoni perfettamente */
+  background-color: #5C6AC4;
+  border-radius: 60px;
+  transition: transform 1s ease, background-color 1s ease 1000ms;
+  box-shadow: 0 30px 10px #00000041;
+  background-image: linear-gradient(to left, #C71818, #0788DE);
+  
+  /* Flexbox allinea l'immagine e il testo internamente senza romperli */
+  display: flex;
+  align-items: center;
+  padding: 0 15px;
+}  
+
+.quadrato div:hover {
+  transform: scale(1.2);
+  color: #e3fc00;
+  opacity: 0.9;
+}
+
+.quadrato img {
+  height: 80%;
+  border-radius: 60px;
+  transition: transform 1s ease;
+  display: block;
+}
+
+.quadrato img:hover {
+  transform-origin: center;
+  transform: scale(1.5);
+  background-color: #69EFFA;
+}
+
+.Ds {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%); /* Centra l'elemento perfettamente in orizzontale */
+  bottom: 20px; /* Lo fissa in basso in modo pulito */
+  color: aquamarine;
+} 
+
+.Ds:hover {
+  color: #f6fa00;
+}
+
+.testo {
+  font-family: Arial, Helvetica, sans-serif;
+  flex-grow: 1; /* Occupa lo spazio rimanente accanto all'immagine */
+  text-align: center; /* Centra il testo nel suo spazio */
+}
+@media (min-width: 600px) {
+  .si {
+    /* Il bordo e gli angoli arrotondati compaiono solo da 600px in su */
+    border: 10px solid #000000;
+    border-radius: 50px;
+  }
+}

@@ -1,0 +1,179 @@
+
+body{
+  background-color: #524c4cce;
+  background-blend-mode: color;
+  
+  
+  
+ 
+}
+.si
+{
+    height: 100vh;
+    width: 100vw;
+    max-width: 600px;
+    background-image: linear-gradient( to right ,#C71818  /*, #11D66A */,  #0788DE  );
+  background-attachment: fixed;
+  background-size: cover;
+  background-repeat: no-repeat;
+    border: 10px solid #000000;
+  
+    
+    align-content: center;
+    align-items: center;
+    margin: 0 auto;
+    border-radius: 50px;
+    
+
+}
+.title {
+  top: 3vh;
+  color: #69EFFA;
+  position: relative;
+  left: 17.5vw;
+margin-bottom: 5vh;
+  
+ 
+  
+}
+.quadrato {
+  color: #f1f1f1;
+  display: grid;
+  grid-template-columns: auto;
+  
+  height: 100vh;
+  width: 90vw;
+  left: 5vh; 
+  right: 5vh;
+ 
+  max-width: 1600px;
+  min-width: none;
+  min-height: auto;
+ 
+
+}
+.quadrato div
+{
+  height: 7vh;
+  width: 45%;
+  background-color: #5C6AC4;
+  border-radius: 60px;
+  transition: transform 1s ease ;
+  transition: background-color 1s ease 1000 ms;
+  
+  margin-bottom: 3vh;
+  
+  box-shadow: 0 30px 10px #00000041 ;
+  
+  left: 7vw;
+   align-items: center;
+  
+  position: relative;
+  align-content: center;
+  
+  background-image: linear-gradient( to left ,#C71818  /*, #11D66A */,  #0788DE  );
+}  
+  
+  
+  
+  
+  
+  /*
+.quadrato
+{
+  height: 10%p;
+  width: 75%;
+  background-color: #5C6AC4;
+  border-radius: 60px;
+  transition: transform 1s ease ;
+  transition: background-color 1s ease 1000 ms;
+  
+  
+  justify-content: center;
+  box-shadow: 0 30px 10px #00000041 ;
+  
+  left: 12.5%;
+  align-items: center;
+  position: absolute ;
+  display: flex;
+  align-content: center;
+  
+  background-image: linear-gradient( to left,#C71818  , #11D66A ,  #0788DE  );
+}
+*/
+.quadrato div:hover
+{
+
+  transform: scale(1.2);
+  color: #e3fc00;
+  opacity: 0.9;
+  
+}
+
+/*
+
+
+  
+*/
+
+
+
+.quadrato img
+{
+  height: 80%;
+  border-radius: 60px;
+  margin-left: 2%;
+  align-content: end;
+  
+  
+  margin-top:1%;
+  
+  display: flex;
+
+  
+  
+  transition:transform 1s ease ;
+
+  
+  
+}
+.quadrato img:hover
+{
+  
+  transform-origin: center;
+  transform: scale(1.5);
+  background-color: #69EFFA;
+  
+  
+  
+/**/
+
+}
+.Ds
+{
+  position: fixed;
+  left: 45%;
+  
+  text-align-last: auto;
+  text-rendering: auto;
+  
+  color: aquamarine;
+  
+} 
+
+
+
+.Ds:hover
+{
+  color: #f6fa00;
+}
+
+.testo
+{
+  font-family: Arial, Helvetica, sans-serif;
+  position: relative;
+  align-self: center;
+  top: -50%;
+  left: 40%;
+  text-align: center;
+}
