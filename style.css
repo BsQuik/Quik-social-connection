@@ -11,7 +11,7 @@ body {
 }
 
 .si {
-  min-height: 100vh; /* Cambiato da height a min-height per evitare tagli su schermi bassi */
+  min-height: 100%; /* Cambiato da height a min-height per evitare tagli su schermi bassi */
   width: 100%;
   max-width: 600px;
   background-image: linear-gradient(to right, #C71818, #0788DE);
@@ -96,7 +96,7 @@ body {
   flex-grow: 1; /* Occupa lo spazio rimanente accanto all'immagine */
   text-align: center; /* Centra il testo nel suo spazio */
 }
-@media (min-width: 600px) {
+@media (min-width: 700px) {
   .si {
     /* Il bordo e gli angoli arrotondati compaiono solo da 600px in su */
     border: 10px solid #000000;
