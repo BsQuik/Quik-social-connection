@@ -157,6 +157,15 @@ body {
     border-radius: 45%;
 
 }
+.pers {
+display: block;
+  margin: 0 auto 15px;
+width: 100px;  
+  height: 100px;
+  border-radius: 50%; 
+ 
+
+}
 .dialog
 {
     height: 100px;
