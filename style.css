@@ -171,3 +171,64 @@ width: 100px;
     height: 100px;
     background-color: #000000;
 }
+
+/* ===== Aggiunte: counter automatico, ultimo video, condividi ===== */
+.quadrato div[hidden] { display: none; }
+.testo.ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.toast {
+  position: fixed; left: 50%; bottom: 20px;
+  transform: translate(-50%, 10px); opacity: 0; pointer-events: none;
+  background-color: #000000; color: #e2ddd5;
+  font-family: Arial, Helvetica, sans-serif;
+  padding: 12px 20px; border-radius: 60px;
+  transition: opacity .2s ease, transform .2s ease;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ===== Aggiunta: popup per browser in italiano ===== */
+.it-popup {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; overflow-y: auto;
+  background-color: rgba(0, 0, 0, 0.65);
+  opacity: 0; transition: opacity .25s ease;
+}
+.it-popup[hidden] { display: none; }
+.it-popup.show { opacity: 1; }
+.it-popup-box {
+  position: relative; width: 100%; max-width: 520px; margin: auto;
+  background-color: #4d4d55;
+  border: 10px solid #000000; border-radius: 50px;
+  padding: 20px 20px 22px; text-align: center;
+  transform: translateY(14px); transition: transform .25s ease;
+}
+.it-popup.show .it-popup-box { transform: translateY(0); }
+.it-popup-box .title { margin-top: 2vh; margin-bottom: 2vh; padding: 0 28px; }
+.it-popup-text { font-family: Arial, Helvetica, sans-serif; color: #d6b1b1; margin-bottom: 4vh; }
+.it-popup-box .quadrato div:hover { transform: scale(1.05); }
+.it-popup-close {
+  position: absolute; top: 14px; right: 14px; width: 40px; height: 40px;
+  border: none; border-radius: 50%; cursor: pointer;
+  background-color: #e2ddd5; color: #000000;
+  font: 26px/1 Arial, Helvetica, sans-serif;
+}
+.it-popup-later {
+  background: none; border: none; cursor: pointer; margin-top: 4px;
+  font: 15px Arial, Helvetica, sans-serif; color: #d6b1b1; text-decoration: underline;
+}
+.it-popup-close:focus-visible, .it-popup-later:focus-visible { outline: 3px solid #69EFFA; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .it-popup, .it-popup-box { transition: none; } }
+
+/* ===== Correzione: icona in alto a destra + colori su mobile ===== */
+body > .pers { display: none; }          /* doppione che il browser sposta dal <head> nel body */
+.si { position: relative; }
+.pers {
+  position: absolute; top: 16px; right: 16px; left: auto;
+  width: 64px; height: 64px; margin: 0; border-radius: 50%;
+}
+@media (max-width: 600px) {
+  body { padding: 12px; }                /* lascia vedere il gradiente rosso-blu attorno al riquadro */
+  .si { min-height: calc(100vh - 24px); border: 8px solid #000000; border-radius: 40px; padding-top: 64px; }
+  .pers { width: 48px; height: 48px; top: 10px; right: 14px; }
+}
+.quadrato > * { min-width: 0; }              /* un titolo lungo non deve allargare la colonna */
