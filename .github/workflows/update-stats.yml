@@ -1,0 +1,35 @@
+name: Aggiorna iscritti YouTube
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-stats
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Legge i dati da YouTube
+        run: node scripts/update-stats.mjs
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          YOUTUBE_HANDLE: BsQuik
+      - name: Salva se è cambiato qualcosa
+        run: |
+          git add stats.json
+          if git diff --cached --quiet; then echo "Nessuna modifica"; exit 0; fi
+          git config user.name "stats-bot"
+          git config user.email "stats-bot@users.noreply.github.com"
+          git commit -m "chore: aggiorna statistiche YouTube"
+          git push
