@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Diagnosi statistiche · BsQuik</title>
+<style>
+body{margin:0;background:#F6F2EE;color:#1B1613;font:18px/1.55 system-ui,-apple-system,sans-serif;padding:20px}
+main{max-width:760px;margin:0 auto}h1{margin:0 0 6px;font-size:30px}p{margin:8px 0}
+button{font:inherit;font-weight:700;min-height:52px;padding:0 22px;border-radius:12px;border:0;background:#C8281C;color:#fff;margin:12px 8px 12px 0}
+button.g{background:none;color:#1B1613;border:2px solid #1B1613}
+.r{background:#fff;border:1px solid #E4DAD2;border-radius:14px;padding:14px 16px;margin:10px 0}
+.r b{display:block}.ok{border-left:8px solid #2E7D32}.ko{border-left:8px solid #C8281C}.wa{border-left:8px solid #D99A00}
+code{background:#EFE7E0;padding:2px 6px;border-radius:6px;word-break:break-all}.m{color:#5F544C;font-size:15px}
+</style>
+</head>
+<body>
+<main>
+<h1>Diagnosi statistiche</h1>
+<p class="m">Pagina di controllo temporanea: <b>cancellala dal repository quando hai finito</b>. Non mostra nessuna chiave.</p>
+<button id="go" type="button">Avvia il controllo</button><button id="cp" class="g" type="button">Copia il risultato</button>
+<div id="out"></div>
+</main>
+<script src="config.js"></script>
+<script>
+(function () {
+  var out = document.getElementById('out'), lines = [];
+  var C = window.BSQUIK || {}, U = (C.SUPABASE_URL || '').replace(/\/$/, '');
+  function add(kind, title, text) {
+    var d = document.createElement('div'); d.className = 'r ' + kind;
+    var b = document.createElement('b'); b.textContent = (kind === 'ok' ? '✓ ' : kind === 'ko' ? '✗ ' : '! ') + title;
+    var p = document.createElement('span'); p.textContent = text || '';
+    d.appendChild(b); d.appendChild(p); out.appendChild(d);
+    lines.push((kind === 'ok' ? '[OK] ' : kind === 'ko' ? '[ERRORE] ' : '[ATTENZIONE] ') + title + (text ? ' — ' + text : ''));
+  }
+  function get(url) { return fetch(url + (url.indexOf('?') < 0 ? '?' : '&') + '_=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text().then(function (t) { return { ok: true, t: t }; }) : { ok: false, s: r.status }; }).catch(function () { return { ok: false, s: 'rete' }; }); }
+
+  function run() {
+    out.textContent = ''; lines = [];
+    add('wa', 'Sito controllato', location.origin + location.pathname.replace(/[^/]*$/, ''));
+
+    /* 1 · config.js */
+    if (/^https:\/\/[a-z0-9]{8,}\.supabase\.co$/.test(U) && /^(sb_publishable_|eyJ)/.test(C.SUPABASE_KEY || '') && !/X{6}/.test(U + C.SUPABASE_KEY))
+      add('ok', 'config.js compilato', 'Indirizzo: ' + U);
+    else add('ko', 'config.js non compilato bene', 'Mancano indirizzo o chiave pubblica (o ci sono ancora le X). Il sito, così, non invia nulla.');
+
+    /* 2 · il sito pubblicato include davvero lo script? */
+    var pages = [['index.html', 'Pagina principale'], ['classico/index.html', 'Versione classica']], jobs = [];
+    pages.forEach(function (p) {
+      jobs.push(get(p[0]).then(function (r) {
+        if (!r.ok) add('wa', p[1] + ': non trovata', 'Risposta: ' + r.s);
+        else if (r.t.indexOf('analytics.js') > -1 && r.t.indexOf('config.js') > -1) add('ok', p[1] + ' carica analytics.js e config.js');
+        else add('ko', p[1] + ' NON carica gli script delle statistiche', 'Il file pubblicato è una versione vecchia: ricarica su GitHub index.html aggiornato.');
+      }));
+    });
+    jobs.push(get('analytics.js').then(function (r) {
+      if (!r.ok) add('ko', 'analytics.js non raggiungibile', 'Risposta: ' + r.s + '. Il file manca nel repository o ha un altro nome.');
+      else if (r.t.indexOf('bsquik-consent') > -1) add('ok', 'analytics.js pubblicato');
+      else add('ko', 'analytics.js diverso dal previsto', 'Il contenuto non è quello di questa guida.');
+    }));
+
+    /* 3 · il tuo browser */
+    var gpc = navigator.globalPrivacyControl === true || navigator.doNotTrack === '1', st = null, ls = true;
+    try { st = localStorage.getItem('bsquik-consent'); } catch (e) { ls = false; }
+    add(gpc ? 'ko' : 'ok', gpc ? 'Il browser ha "Do Not Track" o Global Privacy Control attivo' : 'Nessun "Do Not Track" attivo',
+      gpc ? 'In questo caso il sito non mostra il banner e non conta nulla, per scelta. Prova con un altro browser o disattiva l’opzione.' : '');
+    if (!ls) add('ko', 'Archivio locale bloccato', 'Navigazione privata o blocco totale dei dati: il consenso non si può salvare.');
+    else if (!st) add('wa', 'Non hai ancora scelto sul banner', 'Apri il sito e premi Accetta, poi torna qui.');
+    else { try { var c = JSON.parse(st); add(c.a ? 'ok' : 'ko', c.a ? 'Consenso dato' : 'Hai RIFIUTATO i cookie', c.a ? '' : 'Con il rifiuto non viene contato nulla. Riapri il sito, usa "Gestisci cookie" e premi Accetta.'); } catch (e) { add('wa', 'Consenso illeggibile'); } }
+
+    /* 4 · la funzione track */
+    if (!/^https:\/\/[a-z0-9]{8,}\.supabase\.co$/.test(U)) return;
+    var fn = U + '/functions/v1/track';
+    Promise.all(jobs).then(function () {
+      return fetch(fn, { method: 'GET', mode: 'no-cors', cache: 'no-store' }).then(function () { add('ok', 'Il server di Supabase è raggiungibile'); })
+        .catch(function () { add('ko', 'Supabase non raggiungibile', 'Indirizzo sbagliato in config.js, rete o blocco pubblicità. Se hai un blocco attivo, disattivalo per questo sito.'); });
+    }).then(function () {
+      return fetch(fn, { method: 'POST', body: JSON.stringify({ kind: 'view', page: 'nuovo', visitor: null, lang: 'it' }), mode: 'cors', credentials: 'omit', headers: { 'content-type': 'text/plain;charset=UTF-8' } })
+        .then(function (r) {
+          if (r.status === 204) add('ok', 'La funzione "track" ha salvato un evento di prova', 'Ora nel pannello deve comparire 1 visualizzazione (Ultimi 7 giorni). Se la vedi, il guasto era sul sito (banner, consenso o file vecchi).');
+          else if (r.status === 400) add('ko', 'La funzione risponde 400', 'Riceve dati che non accetta: è una versione diversa di index.ts?');
+          else if (r.status === 403) add('ko', 'La funzione risponde 403', 'ALLOWED_ORIGINS non contiene ' + location.origin + ' (senza / finale e senza nome del repository).');
+          else if (r.status === 404) add('ko', 'Funzione non trovata (404)', 'La funzione non è pubblicata o ha un nome diverso da "track".');
+          else if (r.status === 401) add('ko', 'La funzione risponde 401', 'Su Supabase la funzione ha "Verify JWT" attivo: disattivalo (o ripubblica con --no-verify-jwt).');
+          else add('ko', 'La funzione risponde ' + r.status, r.status >= 500 ? 'Errore nel database: guarda Edge Functions → track → Logs, e controlla di aver lanciato schema.sql.' : '');
+        })
+        .catch(function () {
+          add('ko', 'Richiesta bloccata dal browser', 'Succede quando: (1) ALLOWED_ORIGINS non contiene esattamente ' + location.origin + ', oppure (2) su Supabase "Verify JWT" è attivo. Guarda Edge Functions → track → Logs: 403 = caso 1, 401 = caso 2. Se non c’è nessuna riga nei Logs, la funzione non è pubblicata.');
+        });
+    });
+  }
+  document.getElementById('go').onclick = run;
+  document.getElementById('cp').onclick = function () { var t = lines.join('\n'); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { alert('Copiato'); }, function () { prompt('Copia questo testo:', t); }); };
+})();
+</script>
+</body>
+</html>
