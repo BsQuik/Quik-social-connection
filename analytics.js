@@ -112,7 +112,7 @@
     box = document.createElement('div'); box.className = 'bq'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'Preferenze cookie');
     box.innerHTML = '<button class="x" type="button" aria-label="Chiudi e continua senza accettare">&times;</button>' +
       '<p><b>Cookie e statistiche</b></p>' +
-      '<p>Il sito usa solo strumenti tecnici necessari. Con il tuo consenso conto in modo anonimo visite e click sui link, paese incluso (ricavato dall’indirizzo IP, che non viene salvato). ' +
+      '<p>Il sito usa solo strumenti tecnici necessari. Con il tuo consenso conto in modo anonimo visite e click sui link. ' +
       'Puoi cambiare idea quando vuoi. <a href="' + new URL('cookie.html', baseUrl).href + '">Cookie policy</a></p>' +
       '<div class="r"><button class="y" type="button">Accetta</button><button class="n" type="button">Rifiuta</button><button class="c" type="button">Personalizza</button></div>' +
       '<div class="pn" hidden><label><input type="checkbox" checked disabled> Necessari (sempre attivi)</label>' +
