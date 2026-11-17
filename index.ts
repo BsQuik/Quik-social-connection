@@ -1,8 +1,3 @@
-// Edge Function "track": riceve un click o una visita e la salva in Supabase.
-// - Il paese viene letto dall'header di Cloudflare (cf-ipcountry). L'indirizzo IP NON viene salvato.
-// - Accetta solo link di una lista fissa e solo dai siti elencati in ALLOWED_ORIGINS.
-// Deploy:  supabase functions deploy track --no-verify-jwt
-// Segreto: supabase secrets set ALLOWED_ORIGINS=https://bsquik.github.io
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const LINKS = new Set([
@@ -13,12 +8,48 @@ const PAGES = new Set(["nuovo", "classico"]);
 const ALLOWED = (Deno.env.get("ALLOWED_ORIGINS") ?? "")
   .split(",").map((s) => s.trim()).filter(Boolean);
 
-// SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY sono già presenti dentro le Edge Functions.
 const admin = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   { auth: { persistSession: false } },
 );
+
+async function detectCountry(req: Request): Promise<string> {
+  // 1. Prova prima gli header standard (Cloudflare / proxy)
+  const headerCountry = (
+    req.headers.get("cf-ipcountry") ??
+    req.headers.get("x-vercel-ip-country") ??
+    ""
+  ).trim().toUpperCase();
+
+  if (/^[A-Z]{2}$/.test(headerCountry) && headerCountry !== "XX" && headerCountry !== "T1") {
+    return headerCountry;
+  }
+
+  // 2. Fallback: estrae l'IP al volo (senza salvarlo) e chiede solo il codice paese
+  const forwarded = req.headers.get("x-forwarded-for") ?? "";
+  const ip = forwarded.split(",")[0].trim();
+  if (!ip) return "ZZ";
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 1500);
+    const res = await fetch(`https://api.country.is/${encodeURIComponent(ip)}`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+
+    if (res.ok) {
+      const data = await res.json();
+      const code = String(data?.country ?? "").trim().toUpperCase();
+      if (/^[A-Z]{2}$/.test(code)) return code;
+    }
+  } catch {
+    // Se il servizio esterno è lento o non risponde, non blocca il salvataggio
+  }
+
+  return "ZZ";
+}
 
 Deno.serve(async (req) => {
   const origin = req.headers.get("origin") ?? "";
@@ -47,11 +78,13 @@ Deno.serve(async (req) => {
   const page = PAGES.has(String(body.page)) ? String(body.page) : "nuovo";
   const visitor = /^[0-9a-f-]{36}$/i.test(String(body.visitor ?? "")) ? String(body.visitor) : null;
   const lang = typeof body.lang === "string" ? body.lang.slice(0, 10) : null;
-
-  const raw = (req.headers.get("cf-ipcountry") ?? "").toUpperCase();
-  const country = /^[A-Z]{2}$/.test(raw) && raw !== "XX" && raw !== "T1" ? raw : "ZZ"; // ZZ = sconosciuto
+  const country = await detectCountry(req);
 
   const { error } = await admin.from("events").insert({ kind, link, page, country, visitor, lang });
-  if (error) console.error("insert fallito:", error.message);
-  return new Response(null, { status: error ? 500 : 204, headers: cors });
+  if (error) {
+    console.error("insert fallito:", error.message);
+    return new Response("Error", { status: 500, headers: cors });
+  }
+
+  return new Response(null, { status: 204, headers: cors });
 });
