@@ -48,6 +48,7 @@ h1{margin:0;font-size:clamp(26px,5vw,36px);line-height:1.1}h2{margin:0 0 12px;fo
     <section class="card"><h2>Link più cliccati</h2><div id="bl"></div></section></div>
   <div class="g2"><section class="card"><h2>Paesi (quota dei click)</h2><div id="dn"></div></section>
     <section class="card"><h2>Click per paese</h2><div id="bc"></div><p class="m">Il paese è stimato dall’indirizzo IP: non è la nazionalità. “Sconosciuto” = paese non rilevato.</p></section></div>
+  <section class="card"><h2>Classifica IP (visite)</h2><div class="tw"><table><thead><tr><th>#</th><th>IP</th><th>Visite</th><th>Click</th><th>Paese</th></tr></thead><tbody id="ip"></tbody></table></div><p class="m">Gli IP sono dati personali: non condividere questa pagina.</p></section>
   <section class="card"><h2>Ultimi eventi</h2><div class="tw"><table><thead><tr><th>Quando</th><th>Evento</th><th>Link</th><th>Versione</th><th>Paese</th><th>IP</th></tr></thead><tbody id="rc"></tbody></table></div></section>
 </main>
 
@@ -82,16 +83,22 @@ h1{margin:0;font-size:clamp(26px,5vw,36px);line-height:1.1}h2{margin:0 0 12px;fo
     return auth({ refresh_token: s.r }, 'refresh_token').then(function () { return JSON.parse(sessionStorage.getItem('bq-s')).a; })
       .catch(function () { sessionStorage.removeItem('bq-s'); return null; });
   }
+  function rpc(name, days, t) {
+    return fetch(U + '/rest/v1/rpc/' + name, { method: 'POST', headers: { apikey: K, Authorization: 'Bearer ' + t, 'content-type': 'application/json' }, body: JSON.stringify({ p_days: days }) });
+  }
   function load(days) {
     return token().then(function (t) {
       if (!t) throw new Error('auth');
-      return fetch(U + '/rest/v1/rpc/stats', { method: 'POST', headers: { apikey: K, Authorization: 'Bearer ' + t, 'content-type': 'application/json' }, body: JSON.stringify({ p_days: days }) });
-    }).then(function (r) {
-      if (r.status === 401) { sessionStorage.removeItem('bq-s'); throw new Error('auth'); }
-      if (r.status === 403) throw new Error('forbidden');
-      if (!r.ok) throw new Error('Errore ' + r.status);
-      return r.json();
-    });
+      return Promise.all([rpc('stats', days, t), rpc('top_ips', days, t)]);
+    }).then(function (rs) {
+      var bad = rs.filter(function (r) { return !r.ok; })[0];
+      if (bad) {
+        if (bad.status === 401) { sessionStorage.removeItem('bq-s'); throw new Error('auth'); }
+        if (bad.status === 403) throw new Error('forbidden');
+        throw new Error('Errore ' + bad.status);
+      }
+      return Promise.all(rs.map(function (r) { return r.json(); }));
+    }).then(function (ds) { return { stats: ds[0], ips: ds[1] }; });
   }
 
   /* ---------- grafici in SVG/HTML ---------- */
@@ -154,19 +161,29 @@ h1{margin:0;font-size:clamp(26px,5vw,36px);line-height:1.1}h2{margin:0 0 12px;fo
     });
     wrap.appendChild(s); wrap.appendChild(lg); box.appendChild(wrap);
   }
+  function renderIps(rows) {
+    var tb = $('ip'); tb.textContent = '';
+    if (!rows.length) { var tr0 = el('tr'), td0 = el('td', 'm', 'Ancora nessun IP registrato.'); td0.colSpan = 5; tr0.appendChild(td0); tb.appendChild(tr0); return; }
+    rows.forEach(function (r, i) {
+      var tr = el('tr');
+      [String(i + 1), r.ip, nf.format(r.views), nf.format(r.clicks), country(r.country)].forEach(function (c) { tr.appendChild(el('td', '', c)); });
+      tb.appendChild(tr);
+    });
+  }
   function render(d) {
-    var t = d.totals, k = $('kp'); k.textContent = '';
+    var s = d.stats, t = s.totals, k = $('kp'); k.textContent = '';
     [['Click sui link', t.clicks], ['Visualizzazioni', t.views], ['Visitatori unici', t.visitors], ['Click ogni 100 visite', t.views ? Math.round(t.clicks / t.views * 100) : 0]].forEach(function (x) {
       var c = el('div', 'card'); c.appendChild(el('b', '', nf.format(x[1]))); c.appendChild(el('span', '', x[0])); k.appendChild(c);
     });
-    line($('ln'), d.by_day, +$('rg').value);
-    bars($('bl'), d.by_link, function (r) { return link(r.link); }, function (r) { return r.clicks; });
-    donut($('dn'), d.by_country);
-    bars($('bc'), d.by_country, function (r) { return country(r.country); }, function (r) { return r.clicks; }, function (r) { return ' · ' + nf.format(r.views) + ' visite'; });
+    line($('ln'), s.by_day, +$('rg').value);
+    bars($('bl'), s.by_link, function (r) { return link(r.link); }, function (r) { return r.clicks; });
+    donut($('dn'), s.by_country);
+    bars($('bc'), s.by_country, function (r) { return country(r.country); }, function (r) { return r.clicks; }, function (r) { return ' · ' + nf.format(r.views) + ' visite'; });
+    renderIps(d.ips);
     var tb = $('rc'); tb.textContent = '';
-    d.recent.forEach(function (r) {
+    s.recent.forEach(function (r) {
       var tr = el('tr');
-      [new Date(r.created_at).toLocaleString('it-IT'), r.kind === 'click' ? 'Click' : 'Visita', r.kind === 'click' ? link(r.link) : '—', PAGES[r.page] || r.page, country(r.country)].forEach(function (c) { tr.appendChild(el('td', '', c)); });
+      [new Date(r.created_at).toLocaleString('it-IT'), r.kind === 'click' ? 'Click' : 'Visita', r.kind === 'click' ? link(r.link) : '—', PAGES[r.page] || r.page, country(r.country), r.ip || '—'].forEach(function (c) { tr.appendChild(el('td', '', c)); });
       tb.appendChild(tr);
     });
   }
@@ -192,8 +209,6 @@ h1{margin:0;font-size:clamp(26px,5vw,36px);line-height:1.1}h2{margin:0 0 12px;fo
   if (!/^https:\/\/[a-z0-9]{8,}\.supabase\.co$/.test(U)) showLogin('Prima compila config.js con l’indirizzo e la chiave pubblica di Supabase.');
   else if (sessionStorage.getItem('bq-s')) refresh();
 })();
-
 </script>
 </body>
 </html>
-
