@@ -71,4 +71,129 @@ h1{margin:0;font-size:clamp(26px,5vw,36px);line-height:1.1}h2{margin:0 0 12px;fo
 
   /* ---------- accesso (solo fetch, nessuna libreria esterna) ---------- */
   function save(j) { sessionStorage.setItem('bq-s', JSON.stringify({ a: j.access_token, r: j.refresh_token, e: Date.now() + j.expires_in * 1000 })); }
-  function auth(body,
+  function auth(body, grant) {
+    return fetch(U + '/auth/v1/token?grant_type=' + grant, { method: 'POST', headers: { apikey: K, 'content-type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.msg || j.error_description || 'Accesso non riuscito'); save(j); }); });
+  }
+  function token() {
+    var s = JSON.parse(sessionStorage.getItem('bq-s') || 'null');
+    if (!s) return Promise.resolve(null);
+    if (Date.now() < s.e - 30000) return Promise.resolve(s.a);
+    return auth({ refresh_token: s.r }, 'refresh_token').then(function () { return JSON.parse(sessionStorage.getItem('bq-s')).a; })
+      .catch(function () { sessionStorage.removeItem('bq-s'); return null; });
+  }
+  function load(days) {
+    return token().then(function (t) {
+      if (!t) throw new Error('auth');
+      return fetch(U + '/rest/v1/rpc/stats', { method: 'POST', headers: { apikey: K, Authorization: 'Bearer ' + t, 'content-type': 'application/json' }, body: JSON.stringify({ p_days: days }) });
+    }).then(function (r) {
+      if (r.status === 401) { sessionStorage.removeItem('bq-s'); throw new Error('auth'); }
+      if (r.status === 403) throw new Error('forbidden');
+      if (!r.ok) throw new Error('Errore ' + r.status);
+      return r.json();
+    });
+  }
+
+  /* ---------- grafici in SVG/HTML ---------- */
+  function bars(box, rows, label, val, extra) {
+    box.textContent = '';
+    if (!rows.length) { box.appendChild(el('p', 'm', 'Ancora nessun dato.')); return; }
+    var max = Math.max.apply(null, rows.map(val)) || 1;
+    rows.slice(0, 10).forEach(function (r) {
+      var b = el('div', 'bar'), s = el('span', '', label(r)), t = el('div'), i = el('i');
+      i.style.width = Math.max(1, val(r) / max * 100) + '%'; t.appendChild(i);
+      b.appendChild(s); b.appendChild(t); b.appendChild(el('em', '', nf.format(val(r)) + (extra ? extra(r) : '')));
+      box.appendChild(b);
+    });
+  }
+  function days(n) {
+    var out = [], now = Date.now();
+    for (var i = n - 1; i >= 0; i--) out.push(new Date(now - i * 864e5).toLocaleDateString('sv-SE', { timeZone: 'Europe/Rome' }));
+    return out;
+  }
+  function line(box, byDay, n) {
+    box.textContent = '';
+    var list = days(Math.min(n, 90)), m = {};
+    byDay.forEach(function (d) { m[d.day] = d; });
+    var c = list.map(function (d) { return m[d] ? m[d].clicks : 0; }), v = list.map(function (d) { return m[d] ? m[d].views : 0; });
+    var W = 640, H = 230, L = 36, R = 10, T = 12, Bm = 28, max = Math.max.apply(null, c.concat(v), 1);
+    var s = svg('svg', { viewBox: '0 0 ' + W + ' ' + H, width: '100%', role: 'img', 'aria-label': 'Grafico dei click e delle visite per giorno' });
+    var x = function (i) { return L + (list.length > 1 ? i * (W - L - R) / (list.length - 1) : 0); };
+    var y = function (q) { return T + (H - T - Bm) * (1 - q / max); };
+    [0, .5, 1].forEach(function (f) {
+      var yy = y(max * f); s.appendChild(svg('line', { x1: L, x2: W - R, y1: yy, y2: yy, stroke: 'var(--line)' }));
+      var t = svg('text', { x: L - 6, y: yy + 4, 'text-anchor': 'end' }); t.textContent = Math.round(max * f); s.appendChild(t);
+    });
+    function path(a, color, w, fill) {
+      var d = a.map(function (q, i) { return (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(q).toFixed(1); }).join(' ');
+      if (fill) s.appendChild(svg('path', { d: d + ' L' + x(a.length - 1).toFixed(1) + ' ' + y(0) + ' L' + x(0).toFixed(1) + ' ' + y(0) + ' Z', fill: color, opacity: .12 }));
+      s.appendChild(svg('path', { d: d, fill: 'none', stroke: color, 'stroke-width': w, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+    }
+    path(v, 'var(--s5)', 2, false); path(c, 'var(--acc)', 3, true);
+    [0, Math.floor((list.length - 1) / 2), list.length - 1].forEach(function (i) {
+      var t = svg('text', { x: x(i), y: H - 8, 'text-anchor': i === 0 ? 'start' : i === list.length - 1 ? 'end' : 'middle' });
+      t.textContent = list[i].slice(8) + '/' + list[i].slice(5, 7); s.appendChild(t);
+    });
+    box.appendChild(s);
+    var k = el('p', 'm'); k.textContent = 'Rosso: click · Grigio: visite'; box.appendChild(k);
+  }
+  function donut(box, rows) {
+    box.textContent = '';
+    var tot = rows.reduce(function (a, r) { return a + r.clicks; }, 0);
+    if (!tot) { box.appendChild(el('p', 'm', 'Ancora nessun click.')); return; }
+    var top = rows.slice(0, 5).map(function (r) { return { n: country(r.country), q: r.clicks }; });
+    var rest = tot - top.reduce(function (a, r) { return a + r.q; }, 0);
+    if (rest > 0) top.push({ n: 'Altri', q: rest });
+    var wrap = el('div', 'donut'), s = svg('svg', { viewBox: '0 0 42 42', role: 'img', 'aria-label': 'Quota dei click per paese' }), acc = 0, lg = el('div', 'lg');
+    top.forEach(function (r, i) {
+      var p = r.q / tot * 100;
+      s.appendChild(svg('circle', { cx: 21, cy: 21, r: 15.915, fill: 'none', stroke: COL[i % COL.length], 'stroke-width': 7, 'stroke-dasharray': p + ' ' + (100 - p), 'stroke-dashoffset': 25 - acc }));
+      acc += p;
+      var d = el('div'), sw = el('i'); sw.style.background = COL[i % COL.length];
+      d.appendChild(sw); d.appendChild(el('span', '', r.n + ' · ' + Math.round(p) + '%')); lg.appendChild(d);
+    });
+    wrap.appendChild(s); wrap.appendChild(lg); box.appendChild(wrap);
+  }
+  function render(d) {
+    var t = d.totals, k = $('kp'); k.textContent = '';
+    [['Click sui link', t.clicks], ['Visualizzazioni', t.views], ['Visitatori unici', t.visitors], ['Click ogni 100 visite', t.views ? Math.round(t.clicks / t.views * 100) : 0]].forEach(function (x) {
+      var c = el('div', 'card'); c.appendChild(el('b', '', nf.format(x[1]))); c.appendChild(el('span', '', x[0])); k.appendChild(c);
+    });
+    line($('ln'), d.by_day, +$('rg').value);
+    bars($('bl'), d.by_link, function (r) { return link(r.link); }, function (r) { return r.clicks; });
+    donut($('dn'), d.by_country);
+    bars($('bc'), d.by_country, function (r) { return country(r.country); }, function (r) { return r.clicks; }, function (r) { return ' · ' + nf.format(r.views) + ' visite'; });
+    var tb = $('rc'); tb.textContent = '';
+    d.recent.forEach(function (r) {
+      var tr = el('tr');
+      [new Date(r.created_at).toLocaleString('it-IT'), r.kind === 'click' ? 'Click' : 'Visita', r.kind === 'click' ? link(r.link) : '—', PAGES[r.page] || r.page, country(r.country)].forEach(function (c) { tr.appendChild(el('td', '', c)); });
+      tb.appendChild(tr);
+    });
+  }
+
+  /* ---------- schermate ---------- */
+  function showLogin(msg) { $('dash').hidden = true; $('login').hidden = false; $('er').textContent = msg || ''; }
+  function refresh() {
+    $('de').textContent = '';
+    load(+$('rg').value).then(function (d) { $('login').hidden = true; $('dash').hidden = false; render(d); })
+      .catch(function (e) {
+        if (e.message === 'auth') showLogin();
+        else if (e.message === 'forbidden') { sessionStorage.removeItem('bq-s'); showLogin('Questo account non è autorizzato.'); }
+        else { $('login').hidden = true; $('dash').hidden = false; $('de').textContent = e.message; }
+      });
+  }
+  $('lf').onsubmit = function (e) {
+    e.preventDefault(); $('er').textContent = '';
+    auth({ email: $('em').value, password: $('pw').value }, 'password').then(function () { $('pw').value = ''; refresh(); })
+      .catch(function (x) { $('er').textContent = x.message; });
+  };
+  $('rg').onchange = $('rf').onclick = refresh;
+  $('lo').onclick = function () { sessionStorage.removeItem('bq-s'); showLogin(); };
+  if (!/^https:\/\/[a-z0-9]{8,}\.supabase\.co$/.test(U)) showLogin('Prima compila config.js con l’indirizzo e la chiave pubblica di Supabase.');
+  else if (sessionStorage.getItem('bq-s')) refresh();
+})();
+
+</script>
+</body>
+</html>
+
